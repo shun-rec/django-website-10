@@ -1,294 +1,288 @@
-# djangoチュートリアル #9 ログイン
+# djangoチュートリアル #10 サインアップ
 
-## 最小コードで実用的なログインを作ろう！
+## 最小コードで実用的なサインアップを作ろう！
 
 ## 完成版プロジェクト
 
-<https://github.com/shun-rec/django-website-09>
+<https://github.com/shun-rec/django-website-10>
 
 ## 事前準備
 
-### 新規プロジェクト
+前回から引き続き実装している方は事前準備は不要です。
 
-```py
-django-admin startproject pj_login
-cd pj_login
-```
-
-### 新規アプリの作成
-
-名前は何でも良いですが、今回はdjangoのデフォルトのアカウント周りのアプリ名に合わせて`registration`とします。
-
-```py
-python manage.py startapp registration
-```
-
-### ドメインの許可
-
-全体設定`pj_login/settings.py`の28行目を以下のように修正。
-
-* これを追加しないとブラウザで開いた時に、「このドメインではアクセス出来ません。」というエラーが出ます。
-* 本番では自分のドメインを設定してください。
-
-```py
-ALLOWED_HOSTS = ["*"]
-```
-
-### アプリを追加
-
-同じく全体設定33行目の`INSTALLED_APPS`の配列の**最初**に`registration`アプリを追加。
-
-* djangoは上から順にテンプレートを探します。下に追加してしまうとデフォルトの`admin`アプリのテンプレートが表示されてしまいます。
-
-```py
-    'registration',
-```
-
-### データベースの作成
-
-djagnoのユーザーモデルを使うので、データベースを作成します。
+### 前回ログインを作ったプロジェクトをダウンロード
 
 ```sh
-python manage.py migrate
-```
-
-### スーパーユーザーを作成
-
-今回はメールアドレスも設定してください。  
-値は何でもOKです。
-
-```sh
-python manage.py createsuperuser
+git clone https://github.com/shun-rec/django-website-09.git
+cd django-website-09
 ```
 
 * ユーザー名: admin
 * メールアドレス: dev@example.com
 * パスワード: admin
 
-### ベースのテンプレートの作成
+### 動かしてみよう
 
-前回と同じく[Bootstrap 4](https://getbootstrap.com/docs/4.0/getting-started/introduction/)を使っています。
+開発サーバーを立ち上げて、以下４つの機能が動いていたらOKです。
 
-`registration/templates/base.html`
+* ログイン
+* ログアウト
+* パスワード変更
+* パスワード再設定
 
-```html
-<!doctype HTML>
-<html>
-    <head>
-        <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
-        <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js" integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN" crossorigin="anonymous"></script>
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js" integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q" crossorigin="anonymous"></script>
-        <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js" integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl" crossorigin="anonymous"></script>
-    </head>
-    <body>
-        <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-            <a class="navbar-brand" href="/">アカウント管理</a>
-        </nav>
-        <div class="container mt-4">
-        {% block main %}
-        <p>※コンテンツがありません。</p>
-        {% endblock %}
-        </div>
-    </body>
-</html>
+## ステップ１：メールアドレス必須のユーザー登録フォーム
+
+djangoデフォルトのユーザーモデルは、メールアドレスが必須ではありません。  
+さらに、他のユーザーと同じメールアドレスも登録できてしまいます。  
+本番ではメールアドレスは必須で他のユーザーと被らないようにしたいのでカスタマイズします。
+
+### ユーザーモデルの作成
+
+自作のユーザーモデルを作るには、djangoの`AbstractUser`を継承します。  
+ユーザー名やパスワードはデフォルトのままで、`email`だけ自分で上書き定義します。  
+`unique=True`を指定するとメールアドレスがユーザー固有（一意）のものになります。
+
+`registration/models.py`を以下の内容に修正。
+
+```py
+from django.db import models
+from django.contrib.auth.models import AbstractUser
+
+
+class User(AbstractUser):
+    email = models.EmailField('メールアドレス', unique=True)
 ```
 
-### ログインが必要なページの作成
+**※たとえカスタマイズしなくても独自のユーザーモデルを定義しておくのがベストプラクティスです！**
 
-ログイン出来たことが分かりやすいように会員専用ページを作ります。  
-ログインしていない場合はログインページに移動します。
+### 自作のユーザーモデルをプロジェクトのユーザーモデルとして指定
 
-`registration/templates/registration/index.html`を以下の内容で作成。
+指定しないとdjangoで使われません。
+
+全体設定ファイル`pj_login/settings.py`の最後に以下を追記。
+
+```py
+AUTH_USER_MODEL = 'registration.User'
+```
+
+### サインアップフォームを作成
+
+`registration/forms.py`を以下の内容で作成。
+
+```py
+from django.contrib.auth.forms import UserCreationForm
+from django.contrib.auth import get_user_model
+from django.urls import reverse_lazy
+from django.conf import settings
+
+User = get_user_model()
+
+
+class SignUpForm(UserCreationForm):
+    class Meta:
+        model = User
+        fields = ("username", "email", "password1", "password2")
+
+    def save(self, commit=True):
+        # commit=Falseだと、DBに保存されない
+        user = super().save(commit=False)
+        user.email = self.cleaned_data["email"]
+        user.save()
+        return user
+```
+
+* ユーザーモデルにアクセスする時には`from .models import User`などではなく、必ず`get_user_model`で取得します。
+  * 開発中に`AUTH_USER_MODEL`が切り替わったときなどにエラーになるため。
+* djangoデフォルトのサインアップフォームは`UserCreationForm`で、これをカスタマイズします。
+* `email`の設定でエラーになると中途半端なユーザーが出来てしまうので、`email`の設定が出来て初めてユーザーを保存します。
+
+### ビューを作成
+
+`registration/views.py`を以下の内容で作成。
+
+```py
+from django.views.generic.edit import CreateView
+from django.urls import reverse_lazy
+
+from .forms import SignUpForm
+
+
+class SignUpView(CreateView):
+    form_class = SignUpForm
+    success_url = reverse_lazy('login')
+    template_name = 'registration/signup.html'
+```
+
+* `CreateView`を使うとフォームを表示し、データを保存するところまで自動で行ってくれます。
+
+### テンプレート作成
+
+`registration/templates/registration/signup.html`を以下の内容で新規作成。
 
 ```html
 {% extends "base.html" %}
 {% block main %}
-<h2>会員ページ</h2>
-<p>{{ user }}さん、こんにちは！</p>
-
-<p><a href="{% url 'logout' %}">ログアウト</a></p>
-<p><a href="{% url 'password_change' %}">パスワードの変更</a></p>
-<p><a href="{% url 'password_reset' %}">パスワードを忘れた場合</a></p>
+{% include "_form.html" with submit_label="登録" %}
 {% endblock %}
 ```
 
-## ログイン/ログアウトを作ろう
-
 ### URLの設定
 
-`pj_login/urls.py`を以下に変更。
+`pj_login/urls.py`に以下のインポートを追加。
 
 ```py
-from django.contrib import admin
-from django.urls import path, include
-from django.contrib.auth.decorators import login_required
-
-from django.views.generic import TemplateView
-
-# 実はページを表示するだけならこのように1行で書くことが出来ます。
-index_view = TemplateView.as_view(template_name="registration/index.html")
-
-urlpatterns = [
-    path('admin/', admin.site.urls),
-    path("", login_required(index_view), name="index"),
-    path('', include("django.contrib.auth.urls")),
-]
+from registration import views
 ```
 
-* login_requiredでビューを囲むとログイン必須のページが作れます。
-* この１行でdjangoでデフォルトで用意している以下がすべて入ります。（新規登録はありません）
-  * ログイン
-  * ログアウト
-  * パスワード変更
-  * パスワード再発行
+`urlpatterns`の最後に以下を追加。
 
-### 全体設定の設定
+```py
+    path("signup/", views.SignUpView.as_view(), name="signup"),
+```
+
+### ログイン画面の一番下にサインアップへのリンクを追加
+
+`registration/templates/registration/login.html`の`main`ブロックの一番下に以下を追記。
+
+```html
+<p><a href="{% url 'signup' %}">サインアップ</a></p>
+```
+
+### データベースの作成
+
+※ 前回から引き続いて実装している方は一度データベースを削除して下さい（sqlite3を使用している場合は`db.sqlite3`ファイルを削除）。
+
+```sh
+python manage.py migrate
+```
+
+### 動かしてみよう
+
+開発サーバーを起動して、サインアップページにアクセスしてみましょう。  
+サインアップしたユーザーでログイン出来たらOKです。  
+メールアドレスが空欄の場合にはエラーが出るはずです。
+
+## ステップ２：ユーザー登録時にメールを送ろう
+
+メールアドレスは登録出来ましたが、このままではそのメールアドレスの持ち主が本当にそのユーザーかどうかを確かめる方法がありません。  
+メールアドレス宛に認証用URLを送って登録を完了させるようにしましょう。  
+まずは認証メールを送ってみましょう。
+
+### メールに記載するサイトのURLを設定
 
 `pj_login/settings.py`の末尾に以下を追加。
 
 ```py
-EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
-
-LOGIN_URL = "/login/"
-LOGIN_REDIRECT_URL = "/"
-LOGOUT_REDIRECT_URL = "/login/"
+FRONTEND_URL = "https://localhost-shundev-1.paiza-user-free.cloud:8000"
 ```
 
-* EMAIL_BACKEND: メールシステムを実際に使うのは少し手間なので開発用にコンソールでメールをシミュレーションします。
-* LOGIN_URL: ログインが必要な場合の移動先URL
-* LOGIN_REDIRECT_URL: ログインに成功した場合の移動先URL
-* LOGOUT_REDIRECT_URL: ログアウト後の移動先URL
+* 変数名は何でもいいですが、URLの部分は自身の環境に合わせて変えて下さい。（ローカルで開発している場合はhttp://localhost:8000など）
 
-ページが`https`の環境では、最後に以下も追記してください。  
-メールで送られるURLが`http`ではなく`https`になります。
+### フォーム保存完了時に認証メールを送信
+
+`registration/forms.py`に以下のインポートを追加。
 
 ```py
-# 暗号化されたhttpsを使うようにする
-SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
-SECURE_SSL_REDIRECT = True
+from django.contrib.auth.tokens import default_token_generator
+from django.utils.encoding import force_bytes, force_text
+from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 ```
 
-### ログイン画面のテンプレートを作ろう
+* ３つともこの用途でしかほとんど使いません。テンプレとして覚えてOKです。
 
-#### 共通のフォーム部分を作ろう
+`SignUpForm`の上に以下を追加。
 
-フォーム部分のHTMLはいくつかのページで使うので共通のものを１つ作っておきます。
+```py
+subject = "登録確認"
+message_template = """
+ご登録ありがとうございます。
+以下URLをクリックして登録を完了してください。
 
-`registration/templates/_form.html`を以下内容で新規作成します。
+"""
 
-* submit_labelにボタンのラベルを渡してカスタマイズ出来るフォームです。
-
-```html
-<form method="post">
-    {% csrf_token %}
-    {{ form.as_p }}
-    <input type="submit" value="{{ submit_label }}" />
-</form>
+def get_activate_url(user):
+    uid = urlsafe_base64_encode(force_bytes(user.pk))
+    token = default_token_generator.make_token(user)
+    return settings.FRONTEND_URL + "/activate/{}/{}/".format(uid, token)
 ```
 
-#### ログイン画面のテンプレートを作ろう
+* uidとtokenは認証URLの作成に必要なものです。テンプレとして覚えてしまいましょう！
+* get_activate_url関数でURLを組み立てて返しています。
 
-`registration/templates/registration/login.html`を以下内容で新規作成します。
+`SignUpForm`の`save`メソッドを以下のように修正。
 
-```html
-{% extends "base.html" %}
-{% block main %}
-<h2>ログイン</h2>
-{% include "_form.html" with submit_label="ログイン" %}
-{% endblock %}
+```py
+    def save(self, commit=True):
+        # commit=Falseだと、DBに保存されない
+        user = super().save(commit=False)
+        user.email = self.cleaned_data["email"]
+        
+        # 確認するまでログイン不可にする
+        user.is_active = False
+        
+        if commit:
+            user.save()
+            activate_url = get_activate_url(user)
+            message = message_template + activate_url
+            user.email_user(subject, message)
+        return user
 ```
 
-### 確認してみよう
+* `user.is_active = False`とすることで、メールで認証するまでログイン不可としています。
+* `commit=True`の場合だけユーザーを保存し、メールを送信します。（ウェブからフォームを送信すると自動でTrueになります）
+* `user.email_user`でそのユーザー１人にメールを送ることが出来ます。
 
-* トップ画面がログイン必須
-* ログイン画面が自分で用意したデザイン
-* その他の画面はdjangoデフォルトのデザイン
+### 動かしてみよう
 
-であればOKです。
+サインアップしてコンソールを確認し、認証URLが届いていたらOKです。
 
-## テンプレートをカスタマイズしよう
+## 認証URLで認証しよう
 
-指定された場所にテンプレートを作るだけでそれらが使われるようになります。
+あとは認証URLをクリックした時にユーザーを有効可するだけです。
 
-### パスワード変更(password_change)
+### 認証ロジックを作成
 
-`registration/templates/registration/password_change_form.html`
+`registration/forms.py`の末尾に以下を追加。
 
-```html
-{% extends "base.html" %}
-{% block main %}
-<h2>パスワード変更</h2>
-{% include "_form.html" with submit_label="変更" %}
-{% endblock %}
+```py
+def activate_user(uidb64, token):    
+    try:
+        uid = urlsafe_base64_decode(uidb64).decode()
+        user = User.objects.get(pk=uid)
+    except Exception:
+        return False
+
+    if default_token_generator.check_token(user, token):
+        user.is_active = True
+        user.save()
+        return True
+    
+    return False
 ```
 
-### パスワード変更完了(password_change_done)
+* URLで渡されたuidb64とtokenで認証します。
+* テンプレとして覚えてしまいましょう！
 
-`registration/templates/registration/password_change_done.html`
+### 認証ビューの作成
 
-```html
-{% extends "base.html" %}
-{% block main %}
-<h2>パスワード変更完了</h2>
-<p>パスワードの変更が完了しました。</p>
-{% endblock %}
+認証OKならユーザーを有効化しましょう。
+
+`registration/views.py`のインポートに以下を追加。
+
+```py
+from django.views.generic import View
+from django.http import HttpResponse
+from .forms import activate_user
 ```
 
-### パスワード再発行(password_reset)
+以下の認証用ビューを追加。
 
-`registration/templates/registration/password_reset_form.html`
-
-```html
-{% extends "base.html" %}
-{% block main %}
-<h2>パスワード再設定</h2>
-{% include "_form.html" with submit_label="送信" %}
-{% endblock %}
+```py
+class ActivateView(View):
+    def get(self, request, uidb64, token, *args, **kwargs):
+        result = activate_user(uidb64, token)
+        if result:
+            return HttpResponse('Success.')
+        else:
+            return HttpResponse('Activation link is invalid!')
 ```
-
-### パスワード再発行完了(password_reset_done)
-
-`registration/templates/registration/password_reset_done.html`
-
-```html
-{% extends "base.html" %}
-{% block main %}
-<h2>パスワード再設定メール送信完了</h2>
-<p>パスワード再設定メールを送信しました。</p>
-{% endblock %}
-```
-
-### パスワード再設定(password_reset_confirm)
-
-`registration/templates/registration/password_reset_confirm.html`
-
-```html
-{% extends "base.html" %}
-{% block main %}
-<h2>パスワード再設定</h2>
-
-{% if validlink %}
-    {% include "_form.html" with submit_label="変更" %}
-{% else %}
-    <p>無効なリンクです。</p>
-{% endif %}
-
-{% endblock %}
-```
-
-### パスワード再設定完了(password_reset_complete)
-
-`registration/templates/registration/password_reset_complete.html`
-
-```html
-{% extends "base.html" %}
-{% block main %}
-<h2>パスワード再設定完了</h2>
-<p>パスワードの再設定が完了しました。</p>
-<p><a href="{% url 'login' %}">ログイン</a></p>
-{% endblock %}
-```
-
-### 確認しよう
-
-すべての画面のデザインが変わっていればOKです。
