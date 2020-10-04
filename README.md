@@ -17,10 +17,6 @@ git clone https://github.com/shun-rec/django-website-09.git
 cd django-website-09
 ```
 
-* ユーザー名: admin
-* メールアドレス: dev@example.com
-* パスワード: admin
-
 ### 動かしてみよう
 
 開発サーバーを立ち上げて、以下４つの機能が動いていたらOKです。
