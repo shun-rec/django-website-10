@@ -270,19 +270,37 @@ def activate_user(uidb64, token):
 `registration/views.py`のインポートに以下を追加。
 
 ```py
-from django.views.generic import View
-from django.http import HttpResponse
+from django.views.generic import TemplateView
 from .forms import activate_user
 ```
 
 以下の認証用ビューを追加。
 
 ```py
-class ActivateView(View):
+class ActivateView(TemplateView):
+    template_name = "registration/activate.html"
+    
     def get(self, request, uidb64, token, *args, **kwargs):
+        # 認証トークンを検証して、
         result = activate_user(uidb64, token)
-        if result:
-            return HttpResponse('Success.')
-        else:
-            return HttpResponse('Activation link is invalid!')
+        # コンテクストのresultにTrue/Falseの結果を渡します。
+        return super().get(request, result=result, **kwargs)
 ```
+
+### テンプレートの作成
+
+```html
+{% extends "base.html" %}
+{% block main %}
+{% if result %}
+    <p>認証に成功しました。</p>
+    <p><a href="{% url 'login' %}">ログイン</a></p>
+{% else %}
+    <p>無効なリンクです。</p>
+{% endif %}
+{% endblock %}
+```
+
+### 動かしてみよう
+
+サインアップ → メールのURLクリック → アカウント有効化 → ログインが一通り出来ればOKです。

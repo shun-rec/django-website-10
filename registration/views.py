@@ -1,4 +1,4 @@
-from django.views.generic import View
+from django.views.generic import TemplateView
 from django.views.generic.edit import CreateView
 from django.urls import reverse_lazy
 from django.http import HttpResponse
@@ -12,10 +12,9 @@ class SignUpView(CreateView):
     template_name = 'registration/signup.html'
     
     
-class ActivateView(View):
+class ActivateView(TemplateView):
+    template_name = "registration/activate.html"
+    
     def get(self, request, uidb64, token, *args, **kwargs):
         result = activate_user(uidb64, token)
-        if result:
-            return HttpResponse('Success.')
-        else:
-            return HttpResponse('Activation link is invalid!')
+        return super().get(request, result=result, **kwargs)
