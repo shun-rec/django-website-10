@@ -297,6 +297,19 @@ class ActivateView(TemplateView):
 {% endblock %}
 ```
 
+### URL設定
+
+全体URLの最後に以下のURLパターンを追記します。
+
+`pj_login/urls.py`
+
+```py
+    path('activate/<uidb64>/<token>/', views.ActivateView.as_view(), name='activate'),
+```
+
+以前DetailViewを使った時に`<pk>`でIDを受け取ったことがありましたね？  
+同じようにURLの中に`<名前>`というパターンを埋め込むと、ビュー側でパラメータとして受け取って使うことが出来ます。
+
 ### 動かしてみよう
 
 サインアップ → メールのURLクリック → アカウント有効化 → ログインが一通り出来ればOKです。
